@@ -7,6 +7,7 @@ interface PageProps {
 }
 
 export default async function Home({ searchParams }: PageProps) {
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
   const supabase = await createClient()
   const {
     data: { user },
@@ -22,65 +23,123 @@ export default async function Home({ searchParams }: PageProps) {
     redirect('/')
   }
 
-  // Phase 2: If user is authenticated, display session verification placeholder
-  if (user) {
+  if (!user) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center p-6 text-center">
-        <div className="w-full max-w-sm rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-          <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400">
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-
-          <h1 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-            Session Verified
+        <div className="w-full max-w-sm flex flex-col items-center">
+          <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+            In the Black
           </h1>
-          <p className="mt-1 text-sm text-zinc-500">
-            Phase 2: Google OAuth is working.
+          <p className="mt-2 text-sm text-zinc-500">
+            Track your finances.
           </p>
-
-          <div className="mt-6 rounded-lg bg-zinc-50 p-3.5 text-left text-xs dark:bg-zinc-800/60">
-            <div className="text-zinc-500">Logged in as:</div>
-            <div className="font-medium text-zinc-900 break-all dark:text-zinc-100">
-              {user.email}
-            </div>
+          <div className="mt-8 w-full flex justify-center">
+            <GoogleSignInButton />
           </div>
-
-          <form action={signOutAction} className="mt-6">
-            <button
-              type="submit"
-              className="w-full rounded-xl border border-zinc-200 bg-zinc-100 px-4 py-2.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700 cursor-pointer"
-            >
-              Sign out
-            </button>
-          </form>
         </div>
       </main>
     )
   }
 
-  // Phase 2: If user is not authenticated, show Google login
+  const now = new Date()
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+  const startOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString()
+
+  // Fetch jobs for this month
+  const { data: jobs } = await supabase
+    .from('jobs')
+    .select('price')
+    .gte('created_at', startOfMonth)
+    .lt('created_at', startOfNextMonth)
+
+  // Fethch expenses for this month
+  const { data: expenses } = await supabase
+    .from('expenses')
+    .select('amount')
+    .gte('created_at', startOfMonth)
+    .lt('created_at', startOfNextMonth)
+
+  // Calculate for profit/loss
+  let moneyIn = 0
+  if (jobs) {
+    for (const job of jobs) {
+      moneyIn += Number(job.price)
+    }
+  }
+
+  let moneyOut = 0
+  if (expenses) {
+    for (const expense of expenses) {
+      moneyOut += Number(expense.amount)
+    }
+  }
+
+  const profit = moneyIn - moneyOut
+  const isPositive = profit >= 0
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-6 text-center">
-      <div className="w-full max-w-sm flex flex-col items-center">
-        <h1 className="text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50">
-          In the Black
-        </h1>
-        <p className="mt-2 text-sm text-zinc-500">
-          Radically simple finances for trades.
-        </p>
+        <main className='flex min-h-screen flex-col items-center  w-full'>
+        <div className="flex min-h-screen flex-col justify-between p-6 max-w-md w-full">
+          <header className="flex items-center justify-between py-2 border-b border-zinc-100 dark:border-zinc-800">
+            <span className="text-sm font-semibold tracking-tight">In the Black</span>
+            <form action={signOutAction}>
+              <button type="submit" className="text-xs text-zinc-400 hover:text-zinc-600 underline cursor-pointer">
+                Sign out
+              </button>
+            </form>
+          </header>
 
-        {authError && (
-          <div className="mt-4 w-full rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-600 dark:border-red-900/50 dark:bg-red-950/50 dark:text-red-400">
-            Authentication failed. Please try again.
+          <div className="my-auto py-8 text-center space-y-8">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                Month of {months[now.getMonth()]}
+              </p>
+              <div className="mt-2">
+                <span className="text-xs font-medium text-zinc-500 uppercase tracking-wider block">
+                  Profit
+                </span>
+                <p className={`text-6xl font-black tracking-tight ${isPositive ? 'text-emerald-500' : 'text-rose-500'}`}>
+                  {isPositive ? `$${profit.toLocaleString()}` : `-$${Math.abs(profit).toLocaleString()}`}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-zinc-100 dark:border-zinc-800">
+              <div className="rounded-xl bg-zinc-50 dark:bg-zinc-900/50 p-4 text-center">
+                <span className="text-xs text-zinc-400 font-medium block">Money In</span>
+                <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mt-1">
+                  ${moneyIn.toLocaleString()}
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-zinc-50 dark:bg-zinc-900/50 p-4 text-center">
+                <span className="text-xs text-zinc-400 font-medium block">Money Out</span>
+                <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mt-1">
+                  ${moneyOut.toLocaleString()}
+                </p>
+              </div>
+            </div>
           </div>
-        )}
 
-        <div className="mt-8 w-full flex justify-center">
-          <GoogleSignInButton />
-        </div>
-      </div>
-    </main>
-  )
+          {/* Action Buttons */}
+          <div className="space-y-3 pb-6">
+            <button
+              type="button"
+              className="w-full rounded-2xl bg-zinc-900 dark:bg-zinc-100 py-4 text-lg font-bold text-white dark:text-
+  zinc-900 shadow-md active:scale-95 transition cursor-pointer"
+            >
+              Job done
+            </button>
+
+            <button
+              type="button"
+              className="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 py-2.5 text-sm font-medium
+  text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900 active:scale-95 transition cursor-pointer"
+            >
+              + Expense
+            </button>
+          </div>
+          </div>
+        </main>
+      )
 }
