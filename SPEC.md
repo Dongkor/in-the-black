@@ -71,7 +71,7 @@ expenses
 ## Implementation Tracker
 
     - [x] Next.js + Supabase scaffold, RLS, and baseline Vercel deploy.
-    - [ ] Google OAuth integration & session verification.
+    - [x] Google OAuth integration & session verification.
     - [ ] Summary screen wired to live Supabase data.
     - [ ] "Job done" and "+Expense" flows with Supabase Realtime.
     - [ ] UI/UX mobile polish.
