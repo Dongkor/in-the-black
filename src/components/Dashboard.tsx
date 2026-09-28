@@ -344,7 +344,6 @@ export default function Dashboard({
                   inputMode="decimal"
                   required
                   placeholder="0.00"
-                  autoFocus
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-rose-300 focus:ring-0.2 transition font-medium"
