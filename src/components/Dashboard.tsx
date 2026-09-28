@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { createClient } from '@/utils/supabase/client'
 
 interface DashboardProps {
@@ -39,62 +39,7 @@ export default function Dashboard({
   const profit = moneyIn - moneyOut
   const isPositive = profit >= 0
 
-  // Authenticated Supabase Realtime Listener (Passes JWT so RLS allows broadcast)
-  useEffect(() => {
-    const supabase = createClient()
-    let channel: ReturnType<typeof supabase.channel> | null = null
-    let isMounted = true
-
-    async function setupRealtime() {
-      // 1. Get current session token from cookies
-      const { data: { session } } = await supabase.auth.getSession()
-
-      // 2. Hand the token to the WebSocket before subscribing so auth.uid() is NOT null
-      if (session?.access_token) {
-        await supabase.realtime.setAuth(session.access_token)
-      }
-
-      if (!isMounted) return
-
-      // 3. Create channel and listen for Postgres inserts
-      channel = supabase
-        .channel(`dashboard-sync-${userId}`)
-        .on(
-          'postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'jobs' },
-          (payload) => {
-            console.log('REALTIME EVENT: New job received!', payload)
-            if (payload.new && payload.new.user_id === userId) {
-              setMoneyIn((prev) => prev + Number(payload.new.price))
-            }
-          }
-        )
-        .on(
-          'postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'expenses' },
-          (payload) => {
-            console.log('REALTIME EVENT: New expense received!', payload)
-            if (payload.new && payload.new.user_id === userId) {
-              setMoneyOut((prev) => prev + Number(payload.new.amount))
-            }
-          }
-        )
-        .subscribe((status, err) => {
-          console.log('REALTIME STATUS:', status, err)
-        })
-    }
-
-    setupRealtime()
-
-    return () => {
-      isMounted = false
-      if (channel) {
-        supabase.removeChannel(channel)
-      }
-    }
-  }, [userId])
-
-  // Save Job Handler
+  // Direct Save Job Handler
   async function handleSaveJob(e: React.FormEvent) {
     e.preventDefault()
     if (!customerName || !jobName || !price) return
@@ -117,14 +62,14 @@ export default function Dashboard({
       return
     }
 
-    // Reset and close (Realtime listener updates moneyIn on both Tab 1 and Tab 2!)
+    setMoneyIn((prev) => prev + jobPrice)
     setCustomerName('')
     setJobName('')
     setPrice('')
     setIsJobModalOpen(false)
   }
 
-  // Save Expense Handler
+  // Direct Save Expense Handler
   async function handleSaveExpense(e: React.FormEvent) {
     e.preventDefault()
     if (!amount) return
@@ -145,40 +90,72 @@ export default function Dashboard({
       return
     }
 
-    // Reset and close (Realtime listener updates moneyOut on both Tab 1 and Tab 2!)
+    setMoneyOut((prev) => prev + expenseAmount)
     setAmount('')
     setIsExpenseModalOpen(false)
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center w-full">
-      <div className="flex min-h-screen flex-col justify-between p-6 max-w-md w-full">
+    <main className="relative flex min-h-screen flex-col items-center justify-between w-full bg-[#080c14] text-slate-100 overflow-x-hidden select-none">
+      {/* 100% FIXED, STATIC background gradient — zero shifting, zero moving bubbles */}
+      <div
+        className="fixed inset-0 pointer-events-none "
+        style={{
+          background: `
+            radial-gradient(circle 420px at 90% 0%, rgba(0, 255, 102, 0.2), transparent 70%),
+            radial-gradient(circle 420px at 40% 50%, rgba(0, 255, 102, 0.1), transparent 70%),
+            radial-gradient(circle 380px at 10% 100%, rgba(0, 255, 102, 0.15), transparent 70%),
+            #080c14
+          `,
+        }}
+      />
+
+      <div className="relative z-10 flex min-h-screen flex-col justify-between p-5 max-w-md w-full">
         {/* Top Header */}
-        <header className="flex items-center justify-between py-2 border-b border-zinc-100 dark:border-zinc-800">
-          <span className="text-sm font-semibold tracking-tight">In the Black</span>
+        <header className="flex items-center justify-between pt-2 pb-4">
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-[#00FF66] shadow-[0_0_10px_#00FF66]" />
+            <span className="text-xs font-bold uppercase tracking-wider text-zinc-300">
+              In the Black
+            </span>
+          </div>
           <form action={signOutAction}>
             <button
               type="submit"
-              className="text-xs text-zinc-400 hover:text-zinc-600 underline cursor-pointer"
+              className="px-3 py-1.5 rounded-full bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-xs font-medium text-zinc-400 hover:text-zinc-200 transition-all cursor-pointer"
             >
               Sign out
             </button>
           </form>
         </header>
 
-        {/* Main Numbers */}
-        <div className="my-auto py-8 text-center space-y-8">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-              Month of {monthName}
-            </p>
-            <div className="mt-2">
-              <span className="text-xs font-medium text-zinc-500 uppercase tracking-wider block">
-                Profit
+        {/* Hero Section */}
+        <div className="my-auto py-6 space-y-4">
+          {/* Main Profit Glass Card */}
+          <div className="relative rounded-3xl bg-white/[0.03] backdrop-blur-2xl border border-white/[0.08] shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] p-6 text-center overflow-hidden">
+            {/* Subtle inner top glare */}
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+
+            {/* Month Badge */}
+            <div className="flex items-center justify-center mb-3">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.05] border border-white/[0.08] text-xs font-medium text-zinc-400">
+                <svg className="w-3 h-3 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                {monthName}
+              </span>
+            </div>
+
+            {/* Big Hero Profit Number */}
+            <div className="py-2">
+              <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-widest block">
+                Net Profit
               </span>
               <p
-                className={`text-6xl font-black tracking-tight ${
-                  isPositive ? 'text-emerald-500' : 'text-rose-500'
+                className={`text-6xl sm:text-7xl font-black tracking-tight tabular-nums mt-1 ${
+                  isPositive
+                    ? 'text-[#00FF66] drop-shadow-[0_0_28px_rgba(0,255,102,0.45)]'
+                    : 'text-rose-400 drop-shadow-[0_0_25px_rgba(244,63,94,0.35)]'
                 }`}
               >
                 {isPositive
@@ -188,82 +165,118 @@ export default function Dashboard({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 pt-4 border-t border-zinc-100 dark:border-zinc-800">
-            <div className="rounded-xl bg-zinc-50 dark:bg-zinc-900/50 p-4 text-center">
-              <span className="text-xs text-zinc-400 font-medium block">Money In</span>
-              <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mt-1">
+          {/* Money In & Money Out Glass Pods */}
+          <div className="grid grid-cols-2 gap-3.5">
+            {/* Money In */}
+            <div className="relative rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] p-4 text-center overflow-hidden">
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#00FF66]/20 to-transparent" />
+              <div className="flex items-center justify-center gap-1.5 text-xs text-zinc-400 font-medium">
+                <span className="flex items-center justify-center w-4 h-4 rounded-full bg-[#00FF66]/15 text-[#00FF66] text-[10px] font-bold">
+                  ↑
+                </span>
+                Money In
+              </div>
+              <p className="text-2xl font-bold text-white tracking-tight mt-1.5 tabular-nums">
                 ${moneyIn.toLocaleString()}
               </p>
             </div>
 
-            <div className="rounded-xl bg-zinc-50 dark:bg-zinc-900/50 p-4 text-center">
-              <span className="text-xs text-zinc-400 font-medium block">Money Out</span>
-              <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mt-1">
+            {/* Money Out */}
+            <div className="relative rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] p-4 text-center overflow-hidden">
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-rose-400/20 to-transparent" />
+              <div className="flex items-center justify-center gap-1.5 text-xs text-zinc-400 font-medium">
+                <span className="flex items-center justify-center w-4 h-4 rounded-full bg-rose-500/15 text-rose-400 text-[10px] font-bold">
+                  ↓
+                </span>
+                Money Out
+              </div>
+              <p className="text-2xl font-bold text-white tracking-tight mt-1.5 tabular-nums">
                 ${moneyOut.toLocaleString()}
               </p>
             </div>
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="space-y-3 pb-6">
+        {/* Bottom Action Area (Thumb Zone) */}
+        <div className="space-y-3 pb-4">
           <button
             type="button"
             onClick={() => setIsJobModalOpen(true)}
-            className="w-full rounded-2xl bg-zinc-900 dark:bg-zinc-100 py-4 text-lg font-bold text-white dark:text-zinc-900 shadow-md active:scale-95 transition cursor-pointer"
+            className="w-full rounded-2xl bg-[#00FF66] hover:bg-[#00e65c] py-4 text-lg font-black text-black shadow-[0_0_32px_rgba(0,255,102,0.4)] active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center gap-2"
           >
+            <svg className="w-5 h-5 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+            </svg>
             Job done
           </button>
 
           <button
             type="button"
             onClick={() => setIsExpenseModalOpen(true)}
-            className="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 py-2.5 text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900 active:scale-95 transition cursor-pointer"
+            className="w-full rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] py-3 text-sm font-semibold text-zinc-300 hover:text-white backdrop-blur-md active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center gap-2"
           >
-            + Expense
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <circle cx="12" cy="12" r="9" strokeWidth={2} />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v8m-4-4h8" />
+            </svg>
+            Expense
           </button>
         </div>
       </div>
 
-      {/* "Job Done" Modal */}
+      {/* "Job Done" Bottom Sheet */}
       {isJobModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-4 animate-in fade-in duration-150">
-          <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-xl dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
-            <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">Job Done</h2>
-            <p className="text-xs text-zinc-500 mt-1">Enter details to add to Money In</p>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-md p-0 sm:p-4">
+          <div className="w-full max-w-sm rounded-t-3xl sm:rounded-3xl bg-[#080c14] backdrop-blur-2xl border-t sm:border border-white/10 p-6 shadow-2xl">
+            {/* Mobile sheet drag handle indicator */}
+            <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-4 sm:hidden" />
 
-            <form onSubmit={handleSaveJob} className="mt-5 space-y-4">
+            <div className="flex items-center justify-between mb-4">
               <div>
-                <label className="block text-xs font-semibold text-zinc-600 dark:text-zinc-400 mb-1">
+                <h2 className="text-xl font-bold text-white tracking-tight">Job Done</h2>
+                <p className="text-xs text-zinc-400 mt-0.5">Log finished work to Money In</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsJobModalOpen(false)}
+                className="w-7 h-7 rounded-full bg-white/[0.06] flex items-center justify-center text-zinc-400 hover:text-white cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveJob} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-zinc-400 mb-1">
                   Customer Name
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. John Doe"
+                  placeholder="e.g. Sarah Connor"
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
-                  className="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/50 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-100"
+                  className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-[#00FF66] focus:ring-1 focus:ring-[#00FF66]/30 transition"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-zinc-600 dark:text-zinc-400 mb-1">
-                  Job Name
+                <label className="block text-xs font-semibold text-zinc-400 mb-1">
+                  Job Description
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Mowing the lawn"
+                  placeholder="e.g. Kitchen tap replacement"
                   value={jobName}
                   onChange={(e) => setJobName(e.target.value)}
-                  className="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/50 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-100"
+                  className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-[#00FF66] focus:ring-1 focus:ring-[#00FF66]/30 transition"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-zinc-600 dark:text-zinc-400 mb-1">
-                  Price ($ AUD)
+                <label className="block text-xs font-semibold text-zinc-400 mb-1">
+                  Price
                 </label>
                 <input
                   type="number"
@@ -273,7 +286,7 @@ export default function Dashboard({
                   placeholder="0.00"
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
-                  className="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/50 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-100"
+                  className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-[#00FF66] focus:ring-1 focus:ring-[#00FF66]/30 transition font-medium"
                 />
               </div>
 
@@ -281,7 +294,7 @@ export default function Dashboard({
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="w-full rounded-xl bg-zinc-900 dark:bg-zinc-100 py-3.5 text-sm font-bold text-white dark:text-zinc-900 active:scale-98 transition disabled:opacity-50 cursor-pointer"
+                  className="w-full rounded-xl bg-[#00FF66] hover:bg-[#00e65c] py-3.5 text-sm font-bold text-black active:scale-[0.98] transition shadow-[0_0_24px_rgba(0,255,102,0.35)] disabled:opacity-50 cursor-pointer"
                 >
                   {isSaving ? 'Saving...' : 'Save Job'}
                 </button>
@@ -289,7 +302,7 @@ export default function Dashboard({
                   type="button"
                   onClick={() => setIsJobModalOpen(false)}
                   disabled={isSaving}
-                  className="w-full py-2 text-xs font-medium text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 cursor-pointer"
+                  className="w-full py-2 text-xs font-medium text-zinc-400 hover:text-zinc-200 transition cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -299,17 +312,31 @@ export default function Dashboard({
         </div>
       )}
 
-      {/* "+ Expense" Modal */}
+      {/* "+ Expense" Bottom Sheet */}
       {isExpenseModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-4 animate-in fade-in duration-150">
-          <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-xl dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
-            <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">Add Expense</h2>
-            <p className="text-xs text-zinc-500 mt-1">Enter amount to add to Money Out</p>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-md p-0 sm:p-4">
+          <div className="w-full max-w-sm rounded-t-3xl sm:rounded-3xl bg-[#080c14] backdrop-blur-2xl border-t sm:border border-white/10 p-6 shadow-2xl">
+            {/* Mobile sheet drag handle indicator */}
+            <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-4 sm:hidden" />
 
-            <form onSubmit={handleSaveExpense} className="mt-5 space-y-4">
+            <div className="flex items-center justify-between mb-4">
               <div>
-                <label className="block text-xs font-semibold text-zinc-600 dark:text-zinc-400 mb-1">
-                  Amount ($ AUD)
+                <h2 className="text-xl font-bold text-white tracking-tight">Add Expense</h2>
+                <p className="text-xs text-zinc-400 mt-0.5">Quick single-field expense entry</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsExpenseModalOpen(false)}
+                className="w-7 h-7 rounded-full bg-white/[0.06] flex items-center justify-center text-zinc-400 hover:text-white cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveExpense} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-zinc-400 mb-1">
+                  Amount
                 </label>
                 <input
                   type="number"
@@ -320,7 +347,7 @@ export default function Dashboard({
                   autoFocus
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  className="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/50 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-100"
+                  className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-rose-300 focus:ring-0.2 transition font-medium"
                 />
               </div>
 
@@ -328,7 +355,7 @@ export default function Dashboard({
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="w-full rounded-xl bg-zinc-900 dark:bg-zinc-100 py-3.5 text-sm font-bold text-white dark:text-zinc-900 active:scale-98 transition disabled:opacity-50 cursor-pointer"
+                  className="w-full rounded-xl bg-white/[0.1] hover:bg-white/[0.15] border border-white/10 py-3.5 text-sm font-bold text-white active:scale-[0.98] transition cursor-pointer disabled:opacity-50"
                 >
                   {isSaving ? 'Saving...' : 'Save Expense'}
                 </button>
@@ -336,10 +363,11 @@ export default function Dashboard({
                   type="button"
                   onClick={() => setIsExpenseModalOpen(false)}
                   disabled={isSaving}
-                  className="w-full py-2 text-xs font-medium text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 cursor-pointer"
+                  className="w-full py-2 text-xs font-medium text-zinc-400 hover:text-zinc-200 transition cursor-pointer"
                 >
                   Cancel
                 </button>
+                
               </div>
             </form>
           </div>
