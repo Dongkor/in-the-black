@@ -30,10 +30,10 @@ export default function GoogleSignInButton() {
     <button
       onClick={handleSignIn}
       disabled={loading}
-      className="inline-flex w-full max-w-xs items-center justify-center gap-3 rounded-xl border border-zinc-200 bg-white px-5 py-3.5 text-base font-medium text-zinc-900 shadow-sm transition hover:bg-zinc-50 active:scale-[0.98] disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800/80 cursor-pointer"
+      className="inline-flex w-full max-w-xs items-center justify-center gap-3 rounded-2xl bg-white/[0.06] hover:bg-white/[0.1] border border-white/10 px-6 py-4 text-base font-semibold text-white shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] hover:shadow-[0_0_8px_rgba(0,255,102,0.15)] backdrop-blur-xl transition active:scale-[0.98] disabled:opacity-50 cursor-pointer"
     >
-      <img src="/google.svg" className="h-5 w-5"/>
-      <span>{loading ? 'Connecting to Google...' : 'Sign in with Google'}</span>
+      <img src="/google.svg" className="h-5 w-5" alt="Google logo" />
+      <span>{loading ? 'Connecting...' : 'Sign in with Google'}</span>
     </button>
   )
 }
