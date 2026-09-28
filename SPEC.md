@@ -75,7 +75,7 @@ expenses
     - [x] Summary screen wired to live Supabase data.
     - [x] "Job done" and "+Expense" flows with Supabase Realtime.
     - [x] UI/UX mobile polish.
-    - [ ] Mobile testing on real mobile devices.
+    - [x] Mobile testing on real mobile devices.
 
 ## Definition of done
 

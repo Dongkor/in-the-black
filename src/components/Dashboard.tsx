@@ -253,7 +253,7 @@ export default function Dashboard({
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Sarah Connor"
+                  placeholder="e.g. John Doe"
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
                   className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-[#00FF66] focus:ring-1 focus:ring-[#00FF66]/30 transition"
@@ -267,7 +267,7 @@ export default function Dashboard({
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Kitchen tap replacement"
+                  placeholder="e.g. Car detailing"
                   value={jobName}
                   onChange={(e) => setJobName(e.target.value)}
                   className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-[#00FF66] focus:ring-1 focus:ring-[#00FF66]/30 transition"
